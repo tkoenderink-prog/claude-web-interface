@@ -41,6 +41,11 @@ class Conversation(db.Model):
     # Token counting
     total_tokens = db.Column(db.Integer)  # Total estimated tokens for this conversation
 
+    # v0.3.0 - Mode support
+    mode_id = db.Column(db.Integer, db.ForeignKey('conversation_modes.id'))
+    auto_title = db.Column(db.String(255))
+    exported_at = db.Column(db.DateTime)
+
     # Relationships
     messages = db.relationship('Message', backref='conversation', lazy='dynamic', cascade='all, delete-orphan', order_by='Message.created_at')
     knowledge_links = db.relationship('ConversationKnowledge', backref='conversation', lazy='dynamic', cascade='all, delete-orphan')
@@ -261,3 +266,57 @@ class UserPermissions(db.Model):
 
     def __repr__(self):
         return f'<UserPermissions user_id={self.user_id} web={self.web_search} vault={self.vault_search} read={self.read_files} write={self.write_files}>'
+
+# v0.3.0 - Conversation Mode Models
+
+class ConversationMode(db.Model):
+    """Conversation modes with configurations"""
+    __tablename__ = 'conversation_modes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    icon = db.Column(db.String(50), default='💬')
+    is_default = db.Column(db.Boolean, default=False)
+    is_deleted = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    configuration = db.relationship('ModeConfiguration', backref='mode', uselist=False, cascade='all, delete-orphan')
+    knowledge_files = db.relationship('ModeKnowledgeFile', backref='mode', cascade='all, delete-orphan')
+    conversations = db.relationship('Conversation', backref='mode')
+
+    def __repr__(self):
+        return f'<ConversationMode {self.name}>'
+
+class ModeConfiguration(db.Model):
+    """Configuration settings for each mode"""
+    __tablename__ = 'mode_configuration'
+
+    id = db.Column(db.Integer, primary_key=True)
+    mode_id = db.Column(db.Integer, db.ForeignKey('conversation_modes.id'), nullable=False)
+    model = db.Column(db.String(50), default='claude-3-5-sonnet-20241022')
+    temperature = db.Column(db.Float, default=0.7)
+    max_tokens = db.Column(db.Integer, default=4096)
+    system_prompt = db.Column(db.Text)
+    system_prompt_tokens = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ModeConfiguration mode_id={self.mode_id} model={self.model}>'
+
+class ModeKnowledgeFile(db.Model):
+    """Knowledge files auto-included for modes"""
+    __tablename__ = 'mode_knowledge_files'
+
+    id = db.Column(db.Integer, primary_key=True)
+    mode_id = db.Column(db.Integer, db.ForeignKey('conversation_modes.id'), nullable=False)
+    file_path = db.Column(db.Text, nullable=False)
+    vault = db.Column(db.String(50), default='private')
+    tokens = db.Column(db.Integer, default=0)
+    auto_include = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<ModeKnowledgeFile mode_id={self.mode_id} path={self.file_path}>'

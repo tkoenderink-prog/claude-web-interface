@@ -27,6 +27,8 @@ from services.claude_service import ClaudeService, ObsidianKnowledgeService
 from services.token_service import get_token_service, TokenEstimationError
 from services.permission_service import get_permission_manager
 from services.streaming_service import get_streaming_service, ContentType
+from services.mode_service import get_mode_service
+from services.export_service import get_export_service
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -51,6 +53,8 @@ obsidian_service = ObsidianKnowledgeService({
 token_service = get_token_service()
 permission_manager = get_permission_manager()
 streaming_service = get_streaming_service()
+mode_service = get_mode_service()
+export_service = get_export_service()
 
 # Create database tables
 with app.app_context():
@@ -1012,6 +1016,130 @@ async def handle_stream_message(data):
 
         # Cancel the stream
         await streaming_service.cancel_stream(stream_id)
+
+# v0.3.0 - Mode Management Endpoints
+
+@app.route('/api/modes', methods=['GET'])
+@login_required
+def get_modes():
+    """Get all conversation modes"""
+    try:
+        modes = mode_service.get_all_modes()
+        return jsonify({'modes': modes})
+    except Exception as e:
+        logger.error(f"Failed to get modes: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modes/<int:mode_id>', methods=['GET'])
+@login_required
+def get_mode_details(mode_id):
+    """Get complete mode details"""
+    try:
+        details = mode_service.get_mode_details(mode_id)
+        if not details:
+            return jsonify({'error': 'Mode not found'}), 404
+        return jsonify(details)
+    except Exception as e:
+        logger.error(f"Failed to get mode details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modes', methods=['POST'])
+@login_required
+def create_mode():
+    """Create new conversation mode"""
+    try:
+        data = request.json
+        result = mode_service.create_mode(data)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Failed to create mode: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modes/<int:mode_id>', methods=['PUT'])
+@login_required
+def update_mode(mode_id):
+    """Update existing mode"""
+    try:
+        data = request.json
+        success = mode_service.update_mode(mode_id, data)
+        return jsonify({'success': success})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Failed to update mode: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modes/<int:mode_id>', methods=['DELETE'])
+@login_required
+def delete_mode(mode_id):
+    """Delete a mode"""
+    try:
+        success = mode_service.delete_mode(mode_id)
+        return jsonify({'success': success})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Failed to delete mode: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modes/<int:mode_id>/duplicate', methods=['POST'])
+@login_required
+def duplicate_mode(mode_id):
+    """Duplicate an existing mode"""
+    try:
+        result = mode_service.duplicate_mode(mode_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Failed to duplicate mode: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# v0.3.0 - Export Endpoints
+
+@app.route('/api/conversations/<int:conversation_id>/export', methods=['POST'])
+@login_required
+def export_conversation(conversation_id):
+    """Export conversation to Obsidian inbox"""
+    try:
+        vault = request.json.get('vault', 'private')
+        filepath = export_service.export_to_inbox(conversation_id, vault)
+
+        # Update conversation exported_at timestamp
+        conversation = Conversation.query.get(conversation_id)
+        if conversation:
+            conversation.exported_at = datetime.utcnow()
+            db.session.commit()
+
+        return jsonify({'success': True, 'filepath': filepath})
+    except Exception as e:
+        logger.error(f"Failed to export conversation: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# v0.3.0 - Mobile UI Detection
+
+@app.route('/api/ui/mode', methods=['GET'])
+def get_ui_mode():
+    """Get current UI mode (mobile/desktop)"""
+    user_agent = request.headers.get('User-Agent', '')
+    is_mobile = any(device in user_agent.lower() for device in ['iphone', 'android', 'ipad'])
+
+    # Check for user override in session
+    override = session.get('ui_mode_override')
+    if override:
+        return jsonify({'mode': override, 'user_override': True})
+
+    return jsonify({'mode': 'mobile' if is_mobile else 'desktop', 'user_override': False})
+
+@app.route('/api/ui/mode', methods=['POST'])
+def set_ui_mode():
+    """Set UI mode override"""
+    mode = request.json.get('mode', 'auto')
+    if mode == 'auto':
+        session.pop('ui_mode_override', None)
+    else:
+        session['ui_mode_override'] = mode
+    return jsonify({'success': True})
 
 # Error handlers
 
