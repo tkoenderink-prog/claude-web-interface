@@ -1648,12 +1648,18 @@ class ClaudeClone {
 
     async createNewConversation() {
         try {
+            // Get the selected mode if available
+            const modeId = window.modesManager?.currentMode?.id ||
+                          parseInt(localStorage.getItem('selectedModeId')) ||
+                          1; // Default to General mode
+
             const response = await fetch('/api/conversations', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     title: 'New Conversation',
-                    model: this.settings.model
+                    model: this.settings.model,
+                    mode_id: modeId
                 })
             });
 
@@ -2327,28 +2333,161 @@ class ClaudeClone {
         if (!this.currentConversation) return;
 
         try {
-            const response = await fetch(`/api/conversations/${this.currentConversation.uuid}`);
-            const conversation = await response.json();
+            // Get download options
+            const optionsResponse = await fetch(`/api/conversations/${this.currentConversation.uuid}/download-options`);
+            const options = await optionsResponse.json();
 
-            const exportData = {
-                title: conversation.title,
-                created_at: conversation.created_at,
-                updated_at: conversation.updated_at,
-                messages: conversation.messages,
-                model: conversation.model
-            };
+            // Show format selector modal
+            this.showDownloadModal(options);
 
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+        } catch (error) {
+            console.error('Error exporting conversation:', error);
+            this.showNotification('Failed to export conversation', 'error');
+        }
+    }
+
+    showDownloadModal(options) {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('downloadModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Create modal HTML
+        const modalHtml = `
+            <div id="downloadModal" class="modal" style="display: block;">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h2>Download Conversation</h2>
+                        <button class="close-modal" onclick="document.getElementById('downloadModal').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 20px;">
+                            <strong>${options.title}</strong><br>
+                            <small>${options.message_count} messages</small>
+                        </p>
+                        <div class="download-formats">
+                            ${options.formats.map(format => `
+                                <button class="download-format-btn" data-format="${format.format}">
+                                    <span class="format-icon">${format.icon}</span>
+                                    <div class="format-info">
+                                        <div class="format-label">${format.label}</div>
+                                        <div class="format-description">${format.description}</div>
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Add styles if not already present
+        if (!document.getElementById('downloadModalStyles')) {
+            const styles = `
+                <style id="downloadModalStyles">
+                    .download-formats {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                    }
+                    .download-format-btn {
+                        display: flex;
+                        align-items: center;
+                        gap: 15px;
+                        padding: 15px;
+                        border: 1px solid var(--border-color);
+                        border-radius: 8px;
+                        background: var(--bg-primary);
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        text-align: left;
+                    }
+                    .download-format-btn:hover {
+                        background: var(--bg-hover);
+                        border-color: var(--primary-color);
+                        transform: translateY(-1px);
+                    }
+                    .format-icon {
+                        font-size: 24px;
+                    }
+                    .format-info {
+                        flex: 1;
+                    }
+                    .format-label {
+                        font-weight: 600;
+                        margin-bottom: 4px;
+                    }
+                    .format-description {
+                        font-size: 12px;
+                        color: var(--text-secondary);
+                    }
+                </style>
+            `;
+            document.head.insertAdjacentHTML('beforeend', styles);
+        }
+
+        // Add click handlers
+        document.querySelectorAll('.download-format-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const format = btn.dataset.format;
+                this.downloadConversation(format);
+                document.getElementById('downloadModal').remove();
+            });
+        });
+
+        // Close on backdrop click
+        document.getElementById('downloadModal').addEventListener('click', (e) => {
+            if (e.target.id === 'downloadModal') {
+                e.target.remove();
+            }
+        });
+    }
+
+    async downloadConversation(format) {
+        if (!this.currentConversation) return;
+
+        try {
+            // Show loading notification
+            this.showNotification(`Downloading as ${format}...`, 'info');
+
+            // Fetch the download
+            const response = await fetch(
+                `/api/conversations/${this.currentConversation.uuid}/download/${format}`
+            );
+
+            if (!response.ok) {
+                throw new Error('Download failed');
+            }
+
+            // Get filename from response headers
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `conversation.${format}`;
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            // Download the file
+            const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${conversation.title.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.json`;
+            a.download = filename;
             a.click();
             URL.revokeObjectURL(url);
 
-            this.showNotification('Conversation exported');
+            this.showNotification(`Downloaded as ${format}`, 'success');
         } catch (error) {
-            console.error('Error exporting conversation:', error);
+            console.error('Error downloading conversation:', error);
+            this.showNotification('Download failed', 'error');
         }
     }
 

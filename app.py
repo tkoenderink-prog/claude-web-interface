@@ -29,6 +29,7 @@ from services.permission_service import get_permission_manager
 from services.streaming_service import get_streaming_service, ContentType
 from services.mode_service import get_mode_service
 from services.export_service import get_export_service
+from services.download_service import get_download_service
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -55,6 +56,7 @@ permission_manager = get_permission_manager()
 streaming_service = get_streaming_service()
 mode_service = get_mode_service()
 export_service = get_export_service()
+download_service = get_download_service()
 
 # Create database tables
 with app.app_context():
@@ -206,7 +208,8 @@ def create_conversation():
         title=data.get('title', 'New Conversation'),
         user_id=current_user.id,
         model=data.get('model', app.config['DEFAULT_MODEL']),
-        custom_instructions=data.get('custom_instructions')
+        custom_instructions=data.get('custom_instructions'),
+        mode_id=data.get('mode_id', 1)  # Default to General mode
     )
     db.session.add(conversation)
     db.session.commit()
@@ -220,6 +223,26 @@ def get_conversation(conversation_id):
     response = conversation.to_dict()
     response['messages'] = [m.to_dict() for m in conversation.messages]
     return jsonify(response)
+
+@app.route('/api/conversations/<conversation_id>', methods=['PUT'])
+@login_required
+def update_conversation(conversation_id):
+    """Update a conversation."""
+    conversation = Conversation.query.filter_by(uuid=conversation_id, user_id=current_user.id).first_or_404()
+    data = request.json
+
+    # Update allowed fields
+    if 'title' in data:
+        conversation.title = data['title']
+    if 'mode_id' in data:
+        conversation.mode_id = data['mode_id']
+    if 'model' in data:
+        conversation.model = data['model']
+    if 'custom_instructions' in data:
+        conversation.custom_instructions = data['custom_instructions']
+
+    db.session.commit()
+    return jsonify(conversation.to_dict())
 
 @app.route('/api/conversations/<conversation_id>/messages', methods=['POST'])
 @login_required
@@ -289,9 +312,17 @@ async def send_message(conversation_id):
     else:
         print("No project knowledge being sent")
 
+    # Get the system prompt from the mode if available
+    system_prompt = conversation.custom_instructions or ""
+    if conversation.mode_id:
+        mode_prompt = mode_service.get_system_prompt_for_conversation(conversation.id)
+        if mode_prompt:
+            system_prompt = mode_prompt
+            print(f"Using mode system prompt from mode_id {conversation.mode_id}")
+
     async for chunk in claude_service.create_message(
         messages=messages,
-        system_prompt=conversation.custom_instructions,
+        system_prompt=system_prompt,
         project_knowledge=project_knowledge,
         stream=True,  # Enable streaming
         tools=allowed_tools
@@ -963,9 +994,18 @@ async def handle_stream_message(data):
 
         # Create Claude response generator
         async def claude_generator():
+            # Get the system prompt from the mode if available
+            system_prompt = ""
+            if conversation:
+                system_prompt = conversation.custom_instructions or ""
+                if conversation.mode_id:
+                    mode_prompt = mode_service.get_system_prompt_for_conversation(conversation.id)
+                    if mode_prompt:
+                        system_prompt = mode_prompt
+
             async for chunk in claude_service.create_message(
                 messages=messages,
-                system_prompt=conversation.custom_instructions if conversation else None,
+                system_prompt=system_prompt,
                 project_knowledge=project_knowledge,
                 stream=True,  # Enable streaming
                 tools=allowed_tools
@@ -1140,6 +1180,99 @@ def set_ui_mode():
     else:
         session['ui_mode_override'] = mode
     return jsonify({'success': True})
+
+# Download Endpoints
+
+@app.route('/api/conversations/<uuid>/download/<format>', methods=['GET'])
+@login_required
+def download_conversation(uuid, format):
+    """Download conversation in specified format"""
+    try:
+        # Get conversation
+        conversation = Conversation.query.filter_by(
+            uuid=uuid,
+            user_id=current_user.id
+        ).first()
+
+        if not conversation:
+            return jsonify({'error': 'Conversation not found'}), 404
+
+        # Validate format
+        if format not in ['json', 'markdown', 'pdf']:
+            return jsonify({'error': 'Invalid format. Use json, markdown, or pdf'}), 400
+
+        # Export conversation
+        result = download_service.export_conversation(conversation.id, format)
+
+        # Return as download
+        from flask import Response
+
+        if result.get('is_base64'):
+            # For PDF (base64 encoded)
+            import base64
+            content = base64.b64decode(result['content'])
+        else:
+            # For JSON and Markdown
+            content = result['content'].encode('utf-8')
+
+        response = Response(
+            content,
+            mimetype=result['mime_type'],
+            headers={
+                'Content-Disposition': f'attachment; filename="{result["filename"]}"'
+            }
+        )
+        return response
+
+    except Exception as e:
+        logger.error(f"Failed to download conversation: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/conversations/<uuid>/download-options', methods=['GET'])
+@login_required
+def get_download_options(uuid):
+    """Get available download formats and conversation info"""
+    try:
+        conversation = Conversation.query.filter_by(
+            uuid=uuid,
+            user_id=current_user.id
+        ).first()
+
+        if not conversation:
+            return jsonify({'error': 'Conversation not found'}), 404
+
+        # Count messages
+        message_count = Message.query.filter_by(
+            conversation_id=conversation.id
+        ).count()
+
+        return jsonify({
+            'title': conversation.title or 'Untitled Conversation',
+            'message_count': message_count,
+            'formats': [
+                {
+                    'format': 'markdown',
+                    'label': 'Markdown (.md)',
+                    'description': 'Best for reading and editing',
+                    'icon': '📝'
+                },
+                {
+                    'format': 'pdf',
+                    'label': 'PDF Document',
+                    'description': 'Best for sharing and printing',
+                    'icon': '📄'
+                },
+                {
+                    'format': 'json',
+                    'label': 'JSON Data',
+                    'description': 'Best for data processing',
+                    'icon': '📊'
+                }
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Failed to get download options: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # Error handlers
 

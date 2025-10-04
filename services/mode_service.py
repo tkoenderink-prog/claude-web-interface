@@ -23,7 +23,9 @@ class ModeService:
         """Get all conversation modes"""
         query = ConversationMode.query
         if not include_deleted:
-            query = query.filter_by(is_deleted=False)
+            # Handle both False and NULL values
+            from sqlalchemy import or_
+            query = query.filter(or_(ConversationMode.is_deleted == False, ConversationMode.is_deleted == None))
 
         modes = query.order_by(ConversationMode.is_default.desc(), ConversationMode.name).all()
 
@@ -41,7 +43,7 @@ class ModeService:
     def get_mode_details(self, mode_id: int) -> Optional[Dict[str, Any]]:
         """Get complete mode details including configuration"""
         mode = ConversationMode.query.get(mode_id)
-        if not mode or mode.is_deleted:
+        if not mode or (mode.is_deleted == True):  # Only exclude if explicitly True
             return None
 
         # Calculate total tokens
