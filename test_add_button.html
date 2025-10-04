@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Add Button Fix</title>
+</head>
+<body>
+    <h1>Test Add Button Fix</h1>
+    <p>Open browser console (F12) to see output</p>
+
+    <script>
+        console.log("=== TESTING ADD BUTTON FIX ===");
+
+        // Test 1: Check if chatInterface is available
+        setTimeout(() => {
+            if (window.chatInterface) {
+                console.log("✅ Test 1 PASSED: chatInterface is available");
+                console.log("  Instance:", window.chatInterface);
+            } else {
+                console.error("❌ Test 1 FAILED: chatInterface not found");
+            }
+
+            // Test 2: Check if bulkAddKnowledge exists
+            if (window.chatInterface && typeof window.chatInterface.bulkAddKnowledge === 'function') {
+                console.log("✅ Test 2 PASSED: bulkAddKnowledge method exists");
+            } else {
+                console.error("❌ Test 2 FAILED: bulkAddKnowledge method not found");
+            }
+
+            // Test 3: Check button event listener
+            const button = document.getElementById('bulkAddKnowledgeBtn');
+            if (button) {
+                console.log("✅ Test 3 PASSED: Button found");
+
+                // Simulate click
+                console.log("Simulating button click...");
+                button.click();
+            } else {
+                console.error("❌ Test 3 FAILED: Button not found");
+            }
+
+            console.log("=== TESTS COMPLETE ===");
+        }, 2000); // Wait for page to load
+    </script>
+
+    <p>Expected output in console:</p>
+    <ol>
+        <li>✅ Test 1 PASSED: chatInterface is available</li>
+        <li>✅ Test 2 PASSED: bulkAddKnowledge method exists</li>
+        <li>✅ Test 3 PASSED: Button found</li>
+        <li>=== BULK ADD KNOWLEDGE TRIGGERED === (if button click works)</li>
+    </ol>
+</body>
+</html>

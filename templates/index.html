@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Claude Clone - Chat Interface{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Claude Clone</h2>
+            <button id="newChatBtn" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Chat
+            </button>
+        </div>
+
+        <div class="conversations-list" id="conversationsList">
+            <!-- Conversations will be loaded here -->
+        </div>
+
+        <div class="sidebar-footer">
+            <button id="settingsBtn" class="btn btn-secondary">
+                <i class="fas fa-cog"></i> Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="main-content">
+        <div class="chat-header">
+            <div class="chat-title" id="chatTitle">New Conversation</div>
+            <div class="chat-actions">
+                <button id="knowledgeBtn" class="btn btn-icon" title="Project Knowledge">
+                    <i class="fas fa-book"></i>
+                </button>
+                <button id="exportBtn" class="btn btn-icon" title="Export">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button id="deleteBtn" class="btn btn-icon" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Streaming Status Bar (dynamically created by JavaScript) -->
+        <!-- This will be inserted here by the StreamingUI class -->
+
+        <div class="messages-container" id="messagesContainer">
+            <!-- Messages will be displayed here -->
+            <div class="welcome-message" id="welcomeMessage">
+                <h2>Welcome to Claude Clone</h2>
+                <p>Start a conversation or select from your chat history</p>
+                <div class="suggestions">
+                    <button class="suggestion-chip" data-prompt="Help me understand the PARA method">
+                        PARA Method
+                    </button>
+                    <button class="suggestion-chip" data-prompt="Analyze my Obsidian vault structure">
+                        Vault Analysis
+                    </button>
+                    <button class="suggestion-chip" data-prompt="Create a project plan template">
+                        Project Template
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected Files Display -->
+        <div id="selectedFilesDisplay" class="selected-files-display" style="display: none;">
+            <div class="file-chips-container" id="fileChipsContainer">
+                <!-- File chips will be rendered here -->
+            </div>
+            <div class="token-summary-bar" id="tokenSummaryBar">
+                <div class="token-usage-info">
+                    <span class="token-count-text" id="tokenCountText">0 / 200,000 tokens</span>
+                    <span class="token-percentage" id="tokenPercentage">0%</span>
+                </div>
+                <div class="token-progress-bar">
+                    <div class="token-progress-fill" id="tokenProgressFill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <div class="attachments" id="attachments">
+                <!-- File attachments will show here -->
+            </div>
+            <div class="input-wrapper">
+                <button id="attachBtn" class="btn btn-icon" title="Attach file">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <textarea
+                    id="messageInput"
+                    class="message-input"
+                    placeholder="Send a message..."
+                    rows="1"></textarea>
+                <button id="sendBtn" class="btn btn-primary btn-icon">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Knowledge Modal -->
+    <div class="modal" id="knowledgeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title-section">
+                    <h3>Project Knowledge</h3>
+                    <div class="bulk-controls">
+                        <label class="select-all-container" for="selectAllKnowledge">
+                            <input type="checkbox" id="selectAllKnowledge">
+                            <span class="checkmark"></span>
+                            Select All
+                        </label>
+                        <div class="selection-counter" id="selectionCounter">0 of 0 files selected</div>
+                    </div>
+                </div>
+                <button class="btn btn-icon close-modal" data-modal="knowledgeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="vault-selector">
+                    <label>Select Vault:</label>
+                    <select id="vaultSelect">
+                        <option value="private">Obsidian-Private</option>
+                        <option value="poa">Obsidian-POA</option>
+                    </select>
+                </div>
+
+                <div class="search-box">
+                    <input type="text" id="knowledgeSearch" placeholder="Search files...">
+                    <button id="searchKnowledgeBtn" class="btn btn-primary">Search</button>
+                </div>
+
+                <div class="knowledge-categories">
+                    <button class="category-btn active" data-category="all">All</button>
+                    <button class="category-btn" data-category="PROJECT">Projects</button>
+                    <button class="category-btn" data-category="AREA">Areas</button>
+                    <button class="category-btn" data-category="RESOURCE">Resources</button>
+                    <button class="category-btn" data-category="ARCHIVE">Archive</button>
+                </div>
+
+                <div class="token-info" id="tokenInfo">
+                    <div class="token-counter">
+                        <span class="token-label">Selected tokens:</span>
+                        <span class="token-count" id="selectedTokens">0</span>
+                        <span class="token-limit" id="tokenLimit">(Max: 200,000)</span>
+                    </div>
+                    <div class="token-warning" id="tokenWarning" style="display: none;">
+                        Warning: Selected files exceed recommended token limit
+                    </div>
+                </div>
+
+                <div class="knowledge-results" id="knowledgeResults">
+                    <!-- Search results will appear here -->
+                </div>
+
+                <div class="selected-knowledge">
+                    <h4>Selected Files:</h4>
+                    <div id="selectedKnowledge">
+                        <!-- Selected files will be listed here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal" data-modal="knowledgeModal">Cancel</button>
+                <button id="addKnowledgeBtn" class="btn btn-primary" style="display: none;">Add to Conversation</button>
+                <button id="bulkAddKnowledgeBtn" class="btn btn-primary" disabled>
+                    <div class="bulk-progress"></div>
+                    <span class="bulk-btn-text">Add Selected (0 files)</span>
+                    <div class="bulk-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> Processing...
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Settings</h3>
+                <button class="btn btn-icon close-modal" data-modal="settingsModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>Model:</label>
+                    <select id="modelSelect">
+                        <option value="sonnet-4.5">Claude Sonnet 4.5 (Latest)</option>
+                        <option value="opus-4.1">Claude Opus 4.1 (Most Powerful)</option>
+                        <option value="haiku">Claude Haiku (Fast)</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Custom Instructions:</label>
+                    <textarea id="customInstructions" rows="4" placeholder="Enter custom instructions..."></textarea>
+                </div>
+
+                <div class="setting-group">
+                    <label>Temperature:</label>
+                    <input type="range" id="temperatureSlider" min="0" max="100" value="70">
+                    <span id="temperatureValue">0.7</span>
+                </div>
+
+                <div class="setting-group">
+                    <label>Max Tokens:</label>
+                    <input type="number" id="maxTokens" value="4096" min="100" max="8192">
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="streamingEnabled" checked>
+                        Enable streaming responses
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="darkMode">
+                        Dark mode
+                    </label>
+                </div>
+
+                <!-- Permission Settings Section -->
+                <div class="setting-group permissions-section">
+                    <h4><i class="fas fa-shield-alt"></i> Tool Permissions</h4>
+                    <p class="permissions-description">Control which tools Claude can access during conversations</p>
+
+                    <div class="permission-toggle">
+                        <label class="permission-label">
+                            <input type="checkbox" id="permWebSearch" class="permission-checkbox">
+                            <span class="toggle-slider"></span>
+                            <div class="permission-info">
+                                <span class="permission-icon">🌐</span>
+                                <div class="permission-details">
+                                    <strong>Web Search</strong>
+                                    <small>Allow Claude to search the internet and fetch web content</small>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="permission-toggle">
+                        <label class="permission-label">
+                            <input type="checkbox" id="permVaultSearch" class="permission-checkbox" checked>
+                            <span class="toggle-slider"></span>
+                            <div class="permission-info">
+                                <span class="permission-icon">🔍</span>
+                                <div class="permission-details">
+                                    <strong>Vault Search</strong>
+                                    <small>Allow Claude to search through your Obsidian vault</small>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="permission-toggle">
+                        <label class="permission-label">
+                            <input type="checkbox" id="permReadFiles" class="permission-checkbox" checked>
+                            <span class="toggle-slider"></span>
+                            <div class="permission-info">
+                                <span class="permission-icon">📖</span>
+                                <div class="permission-details">
+                                    <strong>Read Files</strong>
+                                    <small>Allow Claude to read files from your system</small>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="permission-toggle disabled">
+                        <label class="permission-label">
+                            <input type="checkbox" id="permWriteFiles" class="permission-checkbox" disabled>
+                            <span class="toggle-slider disabled"></span>
+                            <div class="permission-info">
+                                <span class="permission-icon">🚫</span>
+                                <div class="permission-details">
+                                    <strong>Write Files</strong>
+                                    <small>File writing is permanently disabled for safety</small>
+                                </div>
+                            </div>
+                        </label>
+                        <div class="permission-disabled-notice" title="File writing is disabled for security and safety reasons">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                    </div>
+
+                    <div class="permission-status" id="permissionStatus">
+                        <div class="permission-summary">
+                            <span class="active-tools-count" id="activeToolsCount">3</span> tools enabled
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal" data-modal="settingsModal">Cancel</button>
+                <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="fileInput" style="display: none;" multiple>
+{% endblock %}

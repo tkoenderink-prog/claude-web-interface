@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Claude Authentication - Claude Clone{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Claude Clone</h1>
+            <p>Connect your Claude Max 20 Subscription</p>
+        </div>
+
+        <div class="auth-body">
+            <div class="auth-info">
+                <div class="info-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Uses your existing Claude Max 20 subscription</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>No API key required</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Access to Sonnet 4.5 and Opus 4.1 models</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Secure browser-based authentication</span>
+                </div>
+            </div>
+
+            <div class="auth-status" id="authStatus">
+                <div class="status-indicator" id="statusIndicator">
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                    <span>Checking authentication status...</span>
+                </div>
+            </div>
+
+            <button id="authBtn" class="btn btn-primary btn-large" disabled>
+                <i class="fas fa-sign-in-alt"></i>
+                Authenticate with Claude
+            </button>
+
+            <div class="auth-steps" style="display: none;" id="authSteps">
+                <h3>Authentication Steps:</h3>
+                <ol>
+                    <li>A browser window will open to Claude.AI</li>
+                    <li>Log in with your Claude Max 20 account</li>
+                    <li>Once logged in, the app will automatically continue</li>
+                    <li>Your session will be saved for future use</li>
+                </ol>
+            </div>
+
+            <div class="auth-progress" style="display: none;" id="authProgress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressText">Opening Claude.AI login page...</p>
+            </div>
+
+            <div class="auth-success" style="display: none;" id="authSuccess">
+                <i class="fas fa-check-circle success-icon"></i>
+                <h3>Authentication Successful!</h3>
+                <p>Your Claude Max 20 subscription is connected.</p>
+                <button class="btn btn-primary" onclick="window.location.href='/'">
+                    Continue to Chat
+                </button>
+            </div>
+
+            <div class="auth-error" style="display: none;" id="authError">
+                <i class="fas fa-exclamation-circle error-icon"></i>
+                <h3>Authentication Failed</h3>
+                <p id="errorMessage">Unable to authenticate with Claude.</p>
+                <button class="btn btn-primary" onclick="retryAuth()">
+                    Try Again
+                </button>
+            </div>
+        </div>
+
+        <div class="auth-footer">
+            <p class="footer-text">
+                <i class="fas fa-info-circle"></i>
+                Your Claude login credentials are never stored. Only session cookies are saved locally.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+.auth-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.auth-card {
+    background: var(--bg-primary);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 500px;
+    overflow: hidden;
+}
+
+.auth-header {
+    background: var(--accent-color);
+    color: white;
+    padding: 30px;
+    text-align: center;
+}
+
+.auth-header h1 {
+    margin: 0 0 10px;
+    font-size: 32px;
+}
+
+.auth-header p {
+    margin: 0;
+    opacity: 0.9;
+}
+
+.auth-body {
+    padding: 40px;
+}
+
+.auth-info {
+    margin-bottom: 30px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+    color: var(--text-secondary);
+}
+
+.info-item i {
+    color: var(--accent-color);
+    font-size: 18px;
+}
+
+.auth-status {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-large {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.auth-steps {
+    margin-top: 30px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.auth-steps h3 {
+    margin-top: 0;
+}
+
+.auth-steps ol {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.auth-steps li {
+    margin-bottom: 10px;
+}
+
+.auth-progress {
+    margin-top: 30px;
+}
+
+.progress-bar {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent-color);
+    width: 0;
+    transition: width 0.3s ease;
+    animation: progress 30s linear;
+}
+
+@keyframes progress {
+    0% { width: 0%; }
+    10% { width: 20%; }
+    50% { width: 60%; }
+    90% { width: 90%; }
+    100% { width: 100%; }
+}
+
+#progressText {
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.auth-success, .auth-error {
+    text-align: center;
+    padding: 30px 0;
+}
+
+.success-icon {
+    font-size: 64px;
+    color: var(--accent-color);
+    margin-bottom: 20px;
+}
+
+.error-icon {
+    font-size: 64px;
+    color: var(--error-color);
+    margin-bottom: 20px;
+}
+
+.auth-footer {
+    background: var(--bg-secondary);
+    padding: 20px;
+    text-align: center;
+}
+
+.footer-text {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+</style>
+
+<script>
+// Check authentication status on load
+document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuthStatus();
+});
+
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/auth/claude/status');
+        const data = await response.json();
+
+        const statusIndicator = document.getElementById('statusIndicator');
+        const authBtn = document.getElementById('authBtn');
+
+        if (data.authenticated) {
+            statusIndicator.innerHTML = `
+                <i class="fas fa-check-circle" style="color: var(--accent-color);"></i>
+                <span>Authenticated with ${data.subscription}</span>
+            `;
+
+            // Redirect to main app after 2 seconds
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        } else {
+            statusIndicator.innerHTML = `
+                <i class="fas fa-exclamation-circle" style="color: var(--error-color);"></i>
+                <span>Not authenticated</span>
+            `;
+            authBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error checking auth status:', error);
+        document.getElementById('authBtn').disabled = false;
+    }
+}
+
+document.getElementById('authBtn').addEventListener('click', async () => {
+    const authBtn = document.getElementById('authBtn');
+    const authSteps = document.getElementById('authSteps');
+    const authProgress = document.getElementById('authProgress');
+    const authStatus = document.getElementById('authStatus');
+
+    // Hide button and status, show steps and progress
+    authBtn.style.display = 'none';
+    authStatus.style.display = 'none';
+    authSteps.style.display = 'block';
+    authProgress.style.display = 'block';
+
+    // Update progress text periodically
+    const progressMessages = [
+        "Opening Claude.AI login page...",
+        "Waiting for you to log in...",
+        "Please complete login in the browser window...",
+        "Verifying authentication...",
+        "Almost done..."
+    ];
+
+    let messageIndex = 0;
+    const messageInterval = setInterval(() => {
+        messageIndex = (messageIndex + 1) % progressMessages.length;
+        document.getElementById('progressText').textContent = progressMessages[messageIndex];
+    }, 5000);
+
+    try {
+        // Start authentication
+        const response = await fetch('/api/auth/claude/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+
+        clearInterval(messageInterval);
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Show success
+            authProgress.style.display = 'none';
+            authSteps.style.display = 'none';
+            document.getElementById('authSuccess').style.display = 'block';
+
+            // Auto-login and redirect
+            await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Authentication failed');
+        }
+    } catch (error) {
+        clearInterval(messageInterval);
+
+        // Show error
+        authProgress.style.display = 'none';
+        authSteps.style.display = 'none';
+        document.getElementById('authError').style.display = 'block';
+        document.getElementById('errorMessage').textContent = error.message;
+    }
+});
+
+function retryAuth() {
+    // Reset UI
+    document.getElementById('authError').style.display = 'none';
+    document.getElementById('authSuccess').style.display = 'none';
+    document.getElementById('authProgress').style.display = 'none';
+    document.getElementById('authSteps').style.display = 'none';
+    document.getElementById('authStatus').style.display = 'block';
+    document.getElementById('authBtn').style.display = 'block';
+
+    // Check status again
+    checkAuthStatus();
+}
+</script>
+{% endblock %}

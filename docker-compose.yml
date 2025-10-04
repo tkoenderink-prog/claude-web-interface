@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  claude-clone:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./static/uploads:/app/static/uploads
+      - ../Obsidian-Private:/obsidian-private:ro
+      - ../Obsidian-POA:/obsidian-poa:ro
+    restart: unless-stopped

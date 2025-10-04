@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}Claude Authentication - Simple Setup{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Claude Clone</h1>
+            <p>Connect Your Claude Max 20 Session</p>
+        </div>
+
+        <div class="auth-body">
+            <div class="auth-tabs">
+                <button class="tab-btn active" data-tab="simple">Simple Setup</button>
+                <button class="tab-btn" data-tab="instructions">Instructions</button>
+            </div>
+
+            <div class="tab-content active" id="simple-tab">
+                <div class="auth-form">
+                    <label for="sessionKey">Session Key:</label>
+                    <textarea
+                        id="sessionKey"
+                        placeholder="Paste your sessionKey cookie value here..."
+                        rows="3"></textarea>
+
+                    <label for="orgId">Organization ID (optional):</label>
+                    <input
+                        type="text"
+                        id="orgId"
+                        placeholder="Leave blank for personal account">
+
+                    <button id="connectBtn" class="btn btn-primary btn-large">
+                        <i class="fas fa-plug"></i>
+                        Connect to Claude
+                    </button>
+
+                    <div class="auth-status" id="authStatus" style="display: none;">
+                        <div class="status-message"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="instructions-tab" style="display: none;">
+                <div class="instructions">
+                    <h3>How to get your Session Key:</h3>
+                    <ol>
+                        <li>Open <a href="https://claude.ai" target="_blank">claude.ai</a> in your browser</li>
+                        <li>Log in with your Claude Max 20 account</li>
+                        <li>Open Developer Tools (F12 or right-click → Inspect)</li>
+                        <li>Go to the Application/Storage tab</li>
+                        <li>Find Cookies → claude.ai</li>
+                        <li>Look for cookie named "sessionKey"</li>
+                        <li>Copy the Value (a long string)</li>
+                        <li>Paste it in the Session Key field above</li>
+                    </ol>
+
+                    <div class="info-box">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Your session key is like a temporary password that proves you're logged in. It expires after a few days, so you'll need to update it occasionally.</p>
+                    </div>
+
+                    <h4>Alternative Method:</h4>
+                    <ol>
+                        <li>While on claude.ai, open Console in Developer Tools</li>
+                        <li>Type: <code>document.cookie.match(/sessionKey=([^;]+)/)[1]</code></li>
+                        <li>Press Enter and copy the result</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="quick-test" style="margin-top: 20px; display: none;" id="quickTest">
+                <h4>Quick Test:</h4>
+                <input type="text" id="testMessage" placeholder="Type a test message...">
+                <button id="testBtn" class="btn btn-secondary">Test Connection</button>
+                <div id="testResult"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.auth-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.auth-form label {
+    font-weight: 500;
+    margin-bottom: -10px;
+}
+
+.auth-form textarea, .auth-form input {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 14px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.auth-form textarea:focus, .auth-form input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.instructions {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.instructions ol {
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.instructions li {
+    margin: 8px 0;
+    line-height: 1.6;
+}
+
+.instructions code {
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.info-box {
+    background: var(--bg-tertiary);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    display: flex;
+    gap: 10px;
+    align-items: start;
+}
+
+.info-box i {
+    color: var(--accent-color);
+    margin-top: 2px;
+}
+
+.auth-status {
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.auth-status.success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.auth-status.error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.quick-test {
+    background: var(--bg-secondary);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.quick-test input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+#testResult {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 13px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+</style>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+
+        // Update buttons
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Update content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.style.display = 'none';
+        });
+        document.getElementById(`${tab}-tab`).style.display = 'block';
+    });
+});
+
+// Connect button
+document.getElementById('connectBtn').addEventListener('click', async () => {
+    const sessionKey = document.getElementById('sessionKey').value.trim();
+    const orgId = document.getElementById('orgId').value.trim();
+
+    if (!sessionKey) {
+        showStatus('Please enter your session key', 'error');
+        return;
+    }
+
+    showStatus('Connecting to Claude...', 'info');
+
+    try {
+        const response = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                session_key: sessionKey,
+                organization_id: orgId || null
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showStatus('✓ Connected successfully!', 'success');
+            document.getElementById('quickTest').style.display = 'block';
+
+            // Redirect to main app after 2 seconds
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        } else {
+            showStatus(data.error || 'Connection failed', 'error');
+        }
+    } catch (error) {
+        showStatus(`Error: ${error.message}`, 'error');
+    }
+});
+
+// Test button
+document.getElementById('testBtn')?.addEventListener('click', async () => {
+    const message = document.getElementById('testMessage').value.trim();
+    if (!message) return;
+
+    document.getElementById('testResult').textContent = 'Testing...';
+
+    try {
+        const response = await fetch('/api/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message})
+        });
+
+        const data = await response.json();
+        document.getElementById('testResult').textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+        document.getElementById('testResult').textContent = `Error: ${error.message}`;
+    }
+});
+
+function showStatus(message, type) {
+    const status = document.getElementById('authStatus');
+    const statusMsg = status.querySelector('.status-message');
+
+    status.style.display = 'block';
+    status.className = `auth-status ${type}`;
+    statusMsg.textContent = message;
+
+    if (type === 'success') {
+        statusMsg.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+    } else if (type === 'error') {
+        statusMsg.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+    } else {
+        statusMsg.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${message}`;
+    }
+}
+
+// Check if we have a saved session on load
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const response = await fetch('/api/auth/session/status');
+        const data = await response.json();
+
+        if (data.authenticated) {
+            showStatus('Session found! Redirecting...', 'success');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
+        }
+    } catch (error) {
+        console.log('No existing session');
+    }
+});
+</script>
+{% endblock %}
